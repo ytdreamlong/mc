@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ghost 1.21.1</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root { --bg: #050505; --panel: #0a0a0a; --border: #1a1a1a; --accent: #22c55e; --text: #888; }
+        body { margin:0; background: var(--bg); font-family: 'Consolas', monospace; color: var(--text); height: 100vh; display: flex; justify-content: center; align-items: center; }
+        .terminal { width: 95vw; height: 90vh; background: var(--panel); border: 1px solid var(--border); display: flex; flex-direction: column; }
+        .header { padding: 10px 20px; border-bottom: 1px solid var(--border); background: #000; display: flex; justify-content: space-between; font-size: 11px; }
+        .content { display: flex; flex: 1; overflow: hidden; }
+        #chat-stream { flex: 3; padding: 20px; overflow-y: auto; font-size: 13px; background: #000; }
+        #sidebar { flex: 1; background: #050505; border-left: 1px solid var(--border); padding: 20px; font-size: 12px; }
+        .controls { padding: 15px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+        input { flex: 1; background: #000; border: 1px solid #222; color: #fff; padding: 10px; font-family: inherit; outline: none; }
+        button { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 0 20px; cursor: pointer; }
+        .modal { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; align-items: center; justify-content: center; }
+        .login-box { border: 1px solid #1a1a1a; padding: 40px; text-align: center; }
+        .player-entry { padding: 4px 0; border-bottom: 1px solid #111; color: #555; }
+    </style>
+</head>
+<body>
+
+<div id="modal" class="modal">
+    <div class="login-box">
+        <h2 style="color:#fff; letter-spacing:4px;">GHOST_INJECT</h2>
+        <input type="text" id="user" value="mysterious_player" style="margin-bottom:10px; text-align:center;"><br>
+        <input type="text" id="host" value="Kill2earn.mc.gg" style="margin-bottom:10px; text-align:center;"><br>
+        <input type="number" id="port" value="25660" style="margin-bottom:20px; text-align:center;"><br>
+        <button onclick="connect()" style="width:100%; height:40px;">CONNECT</button>
+    </div>
+</div>
+
+<div class="terminal">
+    <div class="header">
+        <span>STATUS: ACTIVE</span>
+        <span id="target-ip">...</span>
+    </div>
+    <div class="content">
+        <div id="chat-stream"></div>
+        <div id="sidebar">
+            <h4 style="color:#333; font-size:10px;">SCANNING_ENTITIES...</h4>
+            <div id="player-list"></div>
+        </div>
+    </div>
+    <div class="controls">
+        <input type="text" id="msg-input" placeholder="Packet Data...">
+        <button onclick="sendChat()">SEND</button>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+    const colorMap = {'§0':'#000','§1':'#00A','§2':'#0A0','§3':'#0AA','§4':'#A00','§5':'#A0A','§6':'#FA0','§7':'#AAA','§8':'#555','§9':'#55F','§a':'#5F5','§b':'#5FF','§c':'#F55','§d':'#F5F','§e':'#FF5','§f':'#FFF'};
+
+    function parseMC(text) {
+        if (!text) return '';
+        let html = '';
+        let parts = text.split(/(§[0-9a-f])/g);
+        let color = '#888';
+        parts.forEach(p => {
+            if (p.startsWith('§')) color = colorMap[p] || color;
+            else html += `<span style="color:${color}">${p}</span>`;
+        });
+        return html;
+    }
+
+    async function connect() {
+        const payload = {
+            username: document.getElementById('user').value,
+            ip: document.getElementById('host').value,
+            port: document.getElementById('port').value
+        };
+        await fetch('/join', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        document.getElementById('modal').style.display = 'none';
+        document.getElementById('target-ip').innerText = payload.ip;
+    }
+
+    function sendChat() {
+        const input = document.getElementById('msg-input');
+        if(input.value) { socket.emit('send-chat', input.value); input.value = ''; }
+    }
+
+    socket.on('mc-chat', (data) => {
+        const box = document.getElementById('chat-stream');
+        const div = document.createElement('div');
+        div.innerHTML = `<span style="color:#222;">[${data.user}]</span> ` + parseMC(data.message);
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    });
+
+    socket.on('player-list', (players) => {
+        document.getElementById('player-list').innerHTML = players.map(p => `<div class="player-entry">• ${p}</div>`).join('');
+    });
+
+    document.getElementById('msg-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChat(); });
+</script>
+</body>
+</html>
