@@ -1,2 +1,3 @@
 @echo off
-npm install express mineflayer socket.io
+
+npm install express socket.io mineflayer-pathfinder minecraft-data mineflayer minecraft-protocol --save
